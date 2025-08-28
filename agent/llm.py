@@ -49,30 +49,40 @@ ROOT_CAUSE_ANALYSIS_PROMPT = ChatPromptTemplate.from_messages([
 # Action Planning을 위한 프롬프트 템플릿 (도구 선택 포함)
 ACTION_PLANNING_PROMPT = ChatPromptTemplate.from_messages([
     ("system", """당신은 시스템 운영 전문가입니다. 
-    근본 원인 분석 결과를 바탕으로 효과적이고 안전한 조치 계획을 수립하세요.
+    근본 원인 분석 결과를 바탕으로 3가지 구체적인 조치 계획을 수립하세요.
+    각 조치마다 실행할 도구들과 순서를 명확히 지정해야 합니다.
 
-    조치 계획 원칙:
-    1. 즉시 조치 (서비스 안정화)
-    2. 단기 조치 (임시 해결책)
-    3. 장기 조치 (근본적 해결)
-    4. 모니터링 강화
+    사용 가능한 도구들:
+    - check_ecs_health: ECS 서비스 상태 확인
+    - restart_ecs_task: ECS 태스크 재시작 
+    - verify_restart: 재시작 후 상태 검증
+    - check_db_connections: DB 커넥션 상태 확인
+    - restart_db_pool: DB 커넥션 풀 재시작
+    - validate_db_health: DB 상태 검증
+    - reduce_traffic: 트래픽 감소
+    - restart_all_services: 전체 서비스 재시작
+    - gradual_traffic_restore: 트래픽 단계적 복원
 
-    답변 형식:
-    **즉시 조치 (5분 내):**
-    - 구체적인 실행 명령어
+    응답 형식 (JSON):
+    {{
+      "actions": [
+        {{
+          "id": 1,
+          "title": "ECS 서비스 즉시 재시작",
+          "description": "현재 타임아웃 문제 해결을 위한 즉시 조치",
+          "risk_level": "중간",
+          "estimated_time": "3분",
+          "tools": [
+            {{"name": "check_ecs_health", "params": {{"service": "api-service", "cluster": "prod"}}}},
+            {{"name": "restart_ecs_task", "params": {{"service": "api-service", "force": true}}}},
+            {{"name": "verify_restart", "params": {{"service": "api-service", "timeout": 180}}}}
+          ]
+        }}
+      ],
+      "recommendation": 1
+    }}"""),
     
-    **단기 조치 (1시간 내):**
-    - 상세한 단계별 작업
-    
-    **장기 조치 (1주일 내):**
-    - 근본적 개선 방안
-    
-    **모니터링:**
-    - 추가 모니터링 항목
-    
-    **위험도:** [낮음/보통/높음]"""),
-    
-    ("human", """다음 근본 원인 분석 결과를 바탕으로 조치 계획을 수립해주세요:
+    ("human", """다음 근본 원인 분석 결과를 바탕으로 3가지 조치 계획을 JSON 형식으로 제시해주세요:
 
     **근본 원인:**
     {root_cause}
@@ -80,8 +90,12 @@ ACTION_PLANNING_PROMPT = ChatPromptTemplate.from_messages([
     **현재 상황:**
     - 에러율: {error_rate}
     - 지연시간: {latency}
-    - 영향받는 서비스: {affected_services}""")
+    - 영향받는 서비스: {affected_services}
+
+    **메트릭 정보:**
+    {metrics}""")
 ])
+
 
 def create_root_cause_chain():
     """Root Cause Analysis를 위한 LLM 체인 생성"""

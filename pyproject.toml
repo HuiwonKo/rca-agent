@@ -12,4 +12,5 @@ dependencies = [
     "langgraph-api>=0.4.1",
     "langgraph-cli>=0.4.0",
     "python-dotenv>=1.1.1",
+    "gradio>=4.0.0",
 ]
