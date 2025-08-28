@@ -79,9 +79,9 @@ def validate_db_health(database: str = "main") -> Dict[str, Any]:
     }
 
 # 트래픽 제어 도구들
-def reduce_traffic(percentage: int = 50) -> Dict[str, Any]:
+def reduce_traffic(service: str, percentage: int = 50) -> Dict[str, Any]:
     """트래픽을 지정된 비율로 감소시킵니다"""
-    print(f"🚦 트래픽 감소: {percentage}%")
+    print(f"🚦 {service} 트래픽 감소: {percentage}%")
     time.sleep(1)
     
     return {
