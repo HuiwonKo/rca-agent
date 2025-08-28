@@ -226,8 +226,8 @@ def action_planner_node(state: AgentState):
     return state
 
 
-def approval_gate_node(state: AgentState):
-    """Human-in-the-loop: LangGraph Studio에서 사용자 입력 대기"""
+def remediation_decision_node(state: AgentState):
+    """Human-in-the-loop: 복구 조치 선택 대기"""
     
     # 이미 사용자 피드백이 있으면 처리
     if "human_feedback" in state and state["human_feedback"]:
@@ -308,9 +308,9 @@ def approval_gate_node(state: AgentState):
     return state
 
 
-def execute_selected_action_node(state: AgentState):
+def action_executor_node(state: AgentState):
     """선택된 액션의 도구들을 순차적으로 실행"""
-    print("🔍 선택된 액션을 실행하는 execute_selected_action_node 노드 실행")
+    print("🔍 선택된 액션을 실행하는 action_executor_node 노드 실행")
     choice = state.get("user_choice", "")
     
     if choice.isdigit():
@@ -395,9 +395,9 @@ def execute_selected_action_node(state: AgentState):
     return state
 
 
-def validation_node(state: AgentState):
+def remediation_validator_node(state: AgentState):
     """실행 결과 검증 및 효과 측정"""
-    print("🔍 실행 결과 검증 중...")
+    print("🔍 실행 결과 검증하는 remediation_validator_node 실행 중...")
     
     execution_results = state.get("execution_results", [])
     
@@ -499,9 +499,9 @@ workflow.add_node("SlackAlert", slack_alert_input_node)
 workflow.add_node("ContextCollector", context_collector_node)
 workflow.add_node("RootCauseAnalyzer", root_cause_analyzer_node)
 workflow.add_node("ActionPlanner", action_planner_node)
-workflow.add_node("ApprovalGate", approval_gate_node)
-workflow.add_node("ExecuteAction", execute_selected_action_node)
-workflow.add_node("Validation", validation_node)
+workflow.add_node("RemediationDecision", remediation_decision_node)
+workflow.add_node("ActionExecutor", action_executor_node)
+workflow.add_node("RemediationValidator", remediation_validator_node)
 workflow.add_node("ManualRemediation", manual_remediation_node)
 
 # Edge 연결
@@ -509,14 +509,14 @@ workflow.add_edge(START, "SlackAlert")
 workflow.add_edge("SlackAlert", "ContextCollector")
 workflow.add_edge("ContextCollector", "RootCauseAnalyzer")
 workflow.add_edge("RootCauseAnalyzer", "ActionPlanner")
-workflow.add_edge("ActionPlanner", "ApprovalGate")
+workflow.add_edge("ActionPlanner", "RemediationDecision")
 
 # 조건부 라우팅
 workflow.add_conditional_edges(
-    "ApprovalGate",
+    "RemediationDecision",
     route_after_approval,
     {
-        "execute_action": "ExecuteAction",
+        "execute_action": "ActionExecutor",
         "manual": "ManualRemediation",
         "context_collector": "ContextCollector",  # 재분석 루프백
         END: END
@@ -524,8 +524,8 @@ workflow.add_conditional_edges(
 )
 
 # 실행 후 검증
-workflow.add_edge("ExecuteAction", "Validation")
-workflow.add_edge("Validation", END)
+workflow.add_edge("ActionExecutor", "RemediationValidator")
+workflow.add_edge("RemediationValidator", END)
 workflow.add_edge("ManualRemediation", END)
 
 # --- 실행기 ---
@@ -544,11 +544,11 @@ if __name__ == "__main__":
     initial_state: AgentState = {"alert_context": {"service": "Service A"}}
     
     try:
-        # 초기 실행 (ApprovalGate에서 interrupt 발생)
+        # 초기 실행 (RemediationDecision에서 interrupt 발생)
         result = app.invoke(initial_state)
         print("🎉 Final State:", result)
     except Exception as e:
-        print(f"Expected interrupt at ApprovalGate: {e}")
+        print(f"Expected interrupt at RemediationDecision: {e}")
         
         # 실제 사용 시에는 LangGraph Studio에서 사용자 입력을 받고
         # resume_with_user_choice 함수를 사용하여 재개

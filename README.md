@@ -18,7 +18,7 @@ LangGraph 기반 Root Cause Analysis 에이전트
 ## 🏗 아키텍처
 
 ```
-Slack Alert → Context Collection → Root Cause Analysis → Action Planning → Approval Gate → Execute Action → Validation
+Slack Alert → Context Collection → Root Cause Analysis → Action Planning → Remediation Decision → Action Executor → Remediation Validator
 ```
 
 ### 노드 구성
@@ -27,9 +27,9 @@ Slack Alert → Context Collection → Root Cause Analysis → Action Planning �
 2. **ContextCollector**: 모니터링 데이터 수집 (로그, 메트릭, 트레이스)
 3. **RootCauseAnalyzer**: ChatOpenAI 기반 근본 원인 분석
 4. **ActionPlanner**: 3가지 조치 액션과 도구 목록 생성
-5. **ApprovalGate**: 사용자 승인 대기 (Human-in-the-loop with interrupt)
-6. **ExecuteAction**: 선택된 액션의 도구 실행
-7. **Validation**: 실행 후 상태 검증
+5. **RemediationDecision**: 복구 조치 선택 (Human-in-the-loop with interrupt)
+6. **ActionExecutor**: 선택된 액션의 도구 실행
+7. **RemediationValidator**: 실행 후 상태 검증
 
 ## 🛠 설치 및 실행
 

@@ -60,7 +60,7 @@ class RCAGradioDemo:
             # RCA 에이전트 실행 (Approval Gate까지)
             print(f"🚀 RCA 분석 시작: {service_name}")
             
-            # SlackAlert부터 ApprovalGate까지 실행
+            # SlackAlert부터 RemediationDecision까지 실행
             result = rca_agent.invoke(initial_state, {
                 "recursion_limit": 50
             })
@@ -106,7 +106,7 @@ class RCAGradioDemo:
             
             print(f"🎯 사용자 선택: {choice}")
             
-            # ApprovalGate에서 ExecuteAction까지 실행
+            # RemediationDecision에서 ActionExecutor까지 실행
             result = rca_agent.invoke(self.current_state, {
                 "recursion_limit": 50
             })
