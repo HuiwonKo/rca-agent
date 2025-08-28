@@ -83,8 +83,19 @@ class RCAGradioDemo:
             if not self.current_state:
                 return "❌ 먼저 RCA 분석을 실행해주세요."
             
-            if not choice or not choice.isdigit():
-                return "❌ 올바른 액션 번호를 선택해주세요."
+            if not choice:
+                return "❌ 액션을 선택해주세요."
+            
+            # 유효한 선택인지 확인
+            valid_choices = ["1", "2", "3", "manual", "re_analyze"]
+            if choice not in valid_choices:
+                return f"❌ 올바른 액션을 선택해주세요. 유효한 선택: {', '.join(valid_choices)}"
+            
+            # manual이나 re_analyze 선택 처리
+            if choice == "manual":
+                return self._handle_manual_action()
+            elif choice == "re_analyze":
+                return self._handle_reanalyze_action()
             
             # 사용자 선택을 상태에 추가
             self.current_state["user_choice"] = choice
@@ -171,6 +182,21 @@ class RCAGradioDemo:
             
             lines.append("")
         
+        # 추가 옵션들
+        lines.append("**📋 추가 옵션:**")
+        lines.append("")
+        lines.append("**manual. 수동 처리**")
+        lines.append("설명: 시스템 관리자가 직접 문제를 해결합니다")
+        lines.append("위험도: 사용자 판단")
+        lines.append("예상 시간: 사용자 판단")
+        lines.append("")
+        
+        lines.append("**re_analyze. 재분석**")
+        lines.append("설명: 시스템 상태를 다시 분석합니다")
+        lines.append("위험도: 없음")
+        lines.append("예상 시간: 3-5분")
+        lines.append("")
+        
         lines.append("👆 위 액션 중 하나를 선택하여 실행하세요.")
         return "\n".join(lines)
     
@@ -218,6 +244,144 @@ class RCAGradioDemo:
             lines.append(f"\n🏁 **최종 상태:** {final_status}")
         
         return "\n".join(lines)
+    
+    def _handle_manual_action(self) -> str:
+        """수동 처리 액션 핸들링"""
+        try:
+            # 수동 처리를 상태에 추가
+            self.current_state["user_choice"] = "manual"
+            self.current_state["human_feedback"] = {
+                "choice": "manual",
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            print("🔧 수동 처리 선택됨")
+            
+            # Manual Remediation 노드 실행
+            try:
+                result = rca_agent.invoke(self.current_state, {
+                    "recursion_limit": 50
+                })
+            except Exception as continue_e:
+                print(f"⚠️ 그래프 재개 중 오류: {str(continue_e)}")
+                # 직접 노드 실행으로 fallback
+                from agent.graph import manual_remediation_node
+                
+                state = self.current_state.copy()
+                state = manual_remediation_node(state)
+                
+                result = state
+            
+            self.current_state = result
+            
+            # 수동 처리 결과 포맷팅
+            lines = []
+            lines.append("🔧 **수동 처리 선택됨**")
+            lines.append("=" * 50)
+            lines.append("\n📝 **안내사항:**")
+            lines.append("- 시스템 관리자가 직접 문제를 해결해야 합니다")
+            lines.append("- 근본 원인을 참고하여 적절한 조치를 취하세요")
+            lines.append("- 해결 후 시스템 상태를 모니터링하세요")
+            
+            root_cause = self.current_state.get("root_cause", "")
+            if root_cause:
+                lines.append(f"\n🔍 **참고 - 근본 원인:**")
+                lines.append(root_cause)
+            
+            lines.append(f"\n🏁 **최종 상태:** {result.get('final_status', '수동 처리 대기 중')}")
+            
+            # 실행 히스토리에 추가
+            self.execution_history.append({
+                "timestamp": datetime.now().isoformat(),
+                "choice": "manual",
+                "result": [],
+                "final_status": "수동 처리"
+            })
+            
+            return "\n".join(lines)
+            
+        except Exception as e:
+            error_msg = f"❌ 수동 처리 중 오류 발생:\n{str(e)}"
+            return error_msg
+    
+    def _handle_reanalyze_action(self) -> str:
+        """재분석 액션 핸들링"""
+        try:
+            # 재분석을 위해 상태 초기화
+            print("🔄 재분석 시작...")
+            
+            # 기본 정보는 유지하고 분석 결과만 초기화
+            slack_alert = self.current_state.get("slack_alert", {})
+            
+            # 재분석을 위한 새 상태 생성
+            reanalyze_state = {
+                "slack_alert": slack_alert,
+                "context": {},
+                "metrics": {},
+                "logs": [],
+                "traces": [],
+                "root_cause": "",
+                "recommended_actions": [],
+                "user_choice": "",
+                "selected_action_details": {},
+                "execution_results": [],
+                "final_status": "",
+                "human_feedback": {}
+            }
+            
+            # 재분석 실행 (ActionPlanner까지)
+            try:
+                from agent.graph import (
+                    context_collector_node, 
+                    root_cause_analyzer_node, 
+                    action_planner_node
+                )
+                
+                state = reanalyze_state.copy()
+                state = context_collector_node(state)
+                state = root_cause_analyzer_node(state)
+                state = action_planner_node(state)
+                
+                self.current_state = state
+                result = state
+                
+            except Exception as e:
+                print(f"⚠️ 재분석 중 오류: {str(e)}")
+                return f"❌ 재분석 중 오류가 발생했습니다: {str(e)}"
+            
+            # 재분석 결과 포맷팅
+            lines = []
+            lines.append("🔄 **재분석 완료**")
+            lines.append("=" * 50)
+            
+            # 새로운 근본 원인
+            root_cause = result.get("root_cause", "분석 결과 없음")
+            lines.append(f"\n🔍 **새로운 근본 원인:**")
+            lines.append(root_cause)
+            
+            # 새로운 추천 액션
+            actions = result.get("recommended_actions", [])
+            if actions:
+                lines.append(f"\n🎯 **새로운 추천 액션:** {len(actions)}개")
+                for i, action in enumerate(actions[:3], 1):
+                    lines.append(f"{i}. {action.get('title', f'Action {i}')}")
+                    lines.append(f"   - {action.get('description', '')}")
+            
+            lines.append(f"\n💡 **다음 단계:** 위의 새로운 분석 결과를 바탕으로 액션을 선택하세요.")
+            
+            # 실행 히스토리에 추가
+            self.execution_history.append({
+                "timestamp": datetime.now().isoformat(),
+                "choice": "re_analyze",
+                "result": [],
+                "final_status": "재분석 완료"
+            })
+            
+            return "\n".join(lines)
+            
+        except Exception as e:
+            error_msg = f"❌ 재분석 중 오류 발생:\n{str(e)}"
+            return error_msg
     
     def get_execution_history(self) -> str:
         """실행 히스토리 조회"""
@@ -309,9 +473,10 @@ def create_gradio_interface():
                 
                 with gr.Row():
                     action_choice = gr.Radio(
-                        choices=["1", "2", "3"],
+                        choices=["1", "2", "3", "manual", "re_analyze"],
                         label="실행할 액션 선택",
-                        value="1"
+                        value="1",
+                        info="1, 2, 3: 추천 액션 / manual: 수동 처리 / re_analyze: 재분석"
                     )
                     
                     execute_btn = gr.Button(
